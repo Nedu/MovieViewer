@@ -11,15 +11,27 @@ import AFNetworking
 import MBProgressHUD
 
 class MoviesViewController: UIViewController, UITableViewDataSource, UITableViewDelegate  {
+    
+    
     @IBOutlet weak var tableView: UITableView!
 
     var movies: [NSDictionary]?
+    var hud:MBProgressHUD?;
+    var refreshControl: UIRefreshControl!
+    
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        
         tableView.dataSource = self
         tableView.delegate = self
+        
+        refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: "refreshControlAction:", forControlEvents: UIControlEvents.ValueChanged)
+        tableView.insertSubview(refreshControl, atIndex: 0)
+
         
         let apiKey = "a07e22bc18f5cb106bfe4cc1f83ad8ed"
         let url = NSURL(string: "https://api.themoviedb.org/3/movie/now_playing?api_key=\(apiKey)")
@@ -51,6 +63,7 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         func loadDataFromNetwork() {
             
             // ... Create the NSURLRequest (myRequest) ...
+            let myRequest = NSURLRequest(URL: url!)
             
             // Configure session so that completion handler is executed on main UI thread
             let session = NSURLSession(
@@ -60,7 +73,6 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
             )
             
             // Display HUD right before the request is made
-            MBProgressHUD.showHUDAddedTo(self.view, animated: true)
             
             let task : NSURLSessionDataTask = session.dataTaskWithRequest(myRequest,
                 completionHandler: { (data, response, error) in
@@ -70,6 +82,38 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
                     
                     // ... Remainder of response handling code ...
                     
+            });
+            task.resume()
+        }
+
+        
+        
+        // Makes a network request to get updated data
+        // Updates the tableView with the new data
+        // Hides the RefreshControl
+        func refreshControlAction(refreshControl: UIRefreshControl) {
+            
+            // ... Create the NSURLRequest (myRequest) ...
+            
+            let Request = NSURLRequest(URL: url!)
+            
+            // Configure session so that completion handler is executed on main UI thread
+            let session = NSURLSession(
+                configuration: NSURLSessionConfiguration.defaultSessionConfiguration(),
+                delegate:nil,
+                delegateQueue:NSOperationQueue.mainQueue()
+            )
+            
+            let task : NSURLSessionDataTask = session.dataTaskWithRequest(Request,
+                completionHandler: { (data, response, error) in
+                    
+                    // ... Use the new data to update the data source ...
+                    
+                    // Reload the tableView now that there is new data
+                    self.tableView.reloadData()
+                    
+                    // Tell the refreshControl to stop spinning
+                    refreshControl.endRefreshing()
             });
             task.resume()
         }
@@ -99,17 +143,21 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         let movie = movies![indexPath.row]
         let title = movie["title"] as! String
         let overview = movie["overview"] as! String
-        let posterPath = movie["poster_path"] as! String
-        
+        if let posterPath = movie["poster_path"] as? String{
+            
         let baseUrl = "http://image.tmdb.org/t/p/w500"
         let imageUrl = NSURL(string: baseUrl + posterPath)
         
-        
+            
+
         cell.titleLabel.text = title
         cell.overviewLabel.text = overview
         cell.posterView.setImageWithURL(imageUrl!)
         
-        
+        }
+        else{
+            cell.posterView.image = nil
+        }
         
         print("row \(indexPath.row)")
         return cell
